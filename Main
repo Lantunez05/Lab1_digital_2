@@ -1,0 +1,131 @@
+/* 
+ * File:   Main_lab1.c
+ * Author: Luis Antunez
+ *
+ * Created on 13 de julio de 2023, 02:08 AM
+ */
+
+// CONFIG1
+#pragma config FOSC = INTRC_CLKOUT// Oscillator Selection bits (RC oscillator: CLKOUT function on RA6/OSC2/CLKOUT pin, RC on RA7/OSC1/CLKIN)
+#pragma config WDTE = OFF       // Watchdog Timer Enable bit (WDT disabled and can be enabled by SWDTEN bit of the WDTCON register)
+#pragma config PWRTE = OFF      // Power-up Timer Enable bit (PWRT disabled)
+#pragma config MCLRE = OFF      // RE3/MCLR pin function select bit (RE3/MCLR pin function is digital input, MCLR internally tied to VDD)
+#pragma config CP = OFF         // Code Protection bit (Program memory code protection is disabled)
+#pragma config CPD = OFF        // Data Code Protection bit (Data memory code protection is disabled)
+#pragma config BOREN = OFF      // Brown Out Reset Selection bits (BOR disabled)
+#pragma config IESO = OFF       // Internal External Switchover bit (Internal/External Switchover mode is disabled)
+#pragma config FCMEN = OFF      // Fail-Safe Clock Monitor Enabled bit (Fail-Safe Clock Monitor is disabled)
+#pragma config LVP = OFF        // Low Voltage Programming Enable bit (RB3 pin has digital I/O, HV on MCLR must be used for programming)
+
+// CONFIG2
+#pragma config BOR4V = BOR40V   // Brown-out Reset Selection bit (Brown-out Reset set to 4.0V)
+#pragma config WRT = OFF        // Flash Program Memory Self Write Enable bits (Write protection off)
+
+#include <xc.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "Interrupcion.h"
+
+#define _XTAL_FREQ 4000000
+#define _trm0_value 100
+
+int bit_alto;
+int bit_bajo;
+int Disp_1;
+int Disp_2;
+int val_disp;
+
+uint8_t bandera = 0;
+
+// Prototipos
+void setup(void);
+
+void __interrupt() isr(void)
+{
+    
+    iocb_init(TRISB);
+    if (ADIF)
+    {
+        adc_change_channel(PORTA);
+        // Seccion del display
+        val_disp = adc_read();              // Asiganr el valor del ADC a la variable
+        bit_alto = Disp_altos (val_disp);   // Aasignarlos a los bits alots y bajos
+        bit_bajo = Disp_bajos (val_disp);   
+        
+        Disp_1 = tabla (bit_alto);          
+        Disp_2 = tabla (bit_bajo);          // Mostar el valor almacendaod en la varaible val_disp en los displays fisicos
+        ADIF =0;                            // Apagar la bandera de interrupcion
+        return;
+    }
+    
+    if (INTCONbits.T0IF)
+    {
+        RE0 =0;             // Setear las los pines del multiplexeado en cero
+        RE1 = 0;
+        
+        if (bandera == 0 )   // Verificacion de la variable bandera
+        {
+            bandera = 1;    // Activar la bandera
+            RE0 = 1;        // Encender el pin 0 del puerto E
+            RE1=0;          // Apagar el pin 1 del puerto E
+            PORTC = Disp_1; // Mandar al puerto C el valor del Disp_1
+        }
+        
+        else if (bandera == 1) // Verificacion de la variable bandera
+        {
+            bandera = 0;    // Activar la bandera
+            RE1 = 1;        // Encender el pin 1 del puerto E
+            RE0 = 0;        // Apagar el pin 0 del puerto E
+            PORTC = Disp_2; // Mandar al puerto C el valor del Disp_2
+        } 
+        
+        TMR0 = _trm0_value; //Reiniciar el timer0
+        INTCONbits.T0IF = 0; 
+    }
+    
+    
+    
+}
+
+void main(void) {
+    setup();
+    
+    while (1) 
+    {
+        
+        if(ADCON0bits.GO == 0)
+        {
+           __delay_ms(10);
+            ADCON0bits.GO = 1;  
+        }
+          
+    }
+}
+void setup(void)
+{
+    TRISA = 0b00000011;
+    TRISD = 0;
+    TRISE = 0;
+    TRISC = 0;
+    
+    
+    PORTA = 0;
+    PORTD = 0;
+    PORTE = 0;
+    PORTC = 0;
+    
+    ANSEL = 0b00000011;
+    ANSELH= 0;
+    
+    OSCCONbits.IRCF =0b111; 
+    OSCCONbits.SCS = 1; 
+    
+    timer0_config();
+    ioc_config(0);
+    ioc_config(1);
+    
+    adc_init(1);
+    
+    TMR0 = _trm0_value; //Reiniciar el timer0
+    return;
+}
