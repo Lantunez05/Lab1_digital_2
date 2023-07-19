@@ -20,8 +20,8 @@ void iocb_init (uint8_t pin)
         }
         else if (get == 0)
         {
-           PORTD = 0;
-           PORTD = adc_get_channel();
+           
+           PORTA = adc_get_channel();
         }
     }
     
@@ -93,14 +93,12 @@ int adc_get_channel()
 // Porgramacion de los displays
 int Disp_bajos(int vADC)
 {
-    //int bit_bajo = 0X0F;
     int bajo = (vADC & 0X0F);
     return bajo;
 }
 int Disp_altos (int vADC)
 {
-    //int bit_alto = 0XF0;
-    int alto = (vADC & 0XF0);
+    int alto = (vADC & 0XF0)>>4;
     return alto;
 }
 
